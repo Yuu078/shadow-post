@@ -257,6 +257,10 @@ const game = new Game();
 function applyShot(name) {
   game.frozen = true;
   renderer.time = 0.5236; // blink at full alpha, lanterns mid-pulse
+  // Screenshots frame the game only: the page's control hint is not
+  // part of the game and would only eat frame space.
+  const hint = document.getElementById('hint');
+  if (hint) hint.style.display = 'none';
   if (name === 'title') {
     game.screen = 'title';
     return;
@@ -281,8 +285,9 @@ function applyShot(name) {
     game.elapsed = 34;
     if (name === 'garden') {
       // Courier mid-crossing between two cones, lantern pool, gate ahead.
+      // The courier stands on open path (row 9), never on a hedge tile.
       game.player.x = 12.5 * TILE;
-      game.player.y = 8.5 * TILE;
+      game.player.y = 9.5 * TILE;
       game.player.facing = 0;
       game.guards[0].x = 8.5 * TILE;
       game.guards[0].y = 7.5 * TILE;
@@ -295,19 +300,25 @@ function applyShot(name) {
       game.guards[2].angle = Math.PI / 2;
     } else {
       // A guard has the courier: cone red, eye full, "!" overhead.
+      // The chasing guard's cone points AT the courier (not past them),
+      // the suspicious guard stands on open ground with a visible cone
+      // aimed at a tossed coin, mid-ripple — the coin mechanic in play.
+      game.elapsed = 41;
+      game.coins = 2;
       game.player.x = 12.5 * TILE;
       game.player.y = 9.5 * TILE;
       game.player.facing = Math.PI;
       game.player.inLight = true;
+      game.ripples.push({ x: 15.5 * TILE, y: 10.5 * TILE, age: 0.45, life: 1.1 });
       game.guards[0].x = 9.5 * TILE;
       game.guards[0].y = 7.5 * TILE;
-      game.guards[0].angle = Math.PI / 2;
+      game.guards[0].angle = 0.59; // toward the courier at (12.5, 9.5)
       game.guards[0].state = 'chase';
       game.guards[0].detect = 1;
       game.guards[0].lastSeen = { x: game.player.x, y: game.player.y };
       game.guards[1].x = 18.5 * TILE;
-      game.guards[1].y = 13.5 * TILE;
-      game.guards[1].angle = -Math.PI / 2;
+      game.guards[1].y = 9.5 * TILE;
+      game.guards[1].angle = 2.82; // toward the tossed coin at (15.5, 10.5)
       game.guards[1].state = 'suspicious';
       game.guards[1].detect = 0.7;
       game.guards[2].x = 12.5 * TILE;

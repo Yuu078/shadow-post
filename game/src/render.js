@@ -55,6 +55,11 @@ export class Renderer {
 
   drawBlockers(level) {
     const { ctx } = this;
+    // Hedge tiles connect into continuous strips: remember which tiles
+    // are hedges so only exposed edges get a border.
+    const hedgeAt = new Set(
+      level.blockers.filter((b) => b.kind === 'hedge').map((b) => `${b.x / TILE},${b.y / TILE}`),
+    );
     for (const b of level.blockers) {
       if (b.kind === 'wall') {
         ctx.fillStyle = PALETTE.wall;
@@ -64,18 +69,35 @@ export class Renderer {
         ctx.strokeStyle = 'rgba(10, 12, 30, 0.6)';
         ctx.strokeRect(b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1);
       } else if (b.kind === 'hedge') {
+        // One continuous bush: full tile, no gaps between neighbours,
+        // leaf clusters seeded by the tile so the pattern never repeats
+        // identically from tile to tile.
         ctx.fillStyle = PALETTE.hedge;
-        roundRect(ctx, b.x + 2, b.y + 2, b.w - 4, b.h - 4, 9);
-        ctx.fill();
+        ctx.fillRect(b.x, b.y, b.w, b.h);
+        const tx = b.x / TILE;
+        const ty = b.y / TILE;
+        const seed = (tx * 31 + ty * 17) % 7;
         ctx.fillStyle = PALETTE.hedgeTop;
-        // Leafy dots so a hedge reads as a hedge, not a wall.
-        for (let i = 0; i < 5; i++) {
-          const lx = b.x + 7 + ((i * 7) % 26);
-          const ly = b.y + 8 + ((i * 11) % 24);
+        for (let i = 0; i < 6; i++) {
+          const lx = b.x + 6 + ((i * 11 + seed * 5) % 28);
+          const ly = b.y + 6 + ((i * 7 + seed * 3) % 28);
           ctx.beginPath();
-          ctx.arc(lx, ly, 3.2, 0, Math.PI * 2);
+          ctx.arc(lx, ly, 3.4 + ((i + seed) % 3), 0, Math.PI * 2);
           ctx.fill();
         }
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+        ctx.beginPath();
+        ctx.arc(b.x + 10 + seed * 3, b.y + 26, 4, 0, Math.PI * 2);
+        ctx.fill();
+        // Border only where a neighbour is not a hedge.
+        ctx.strokeStyle = 'rgba(8, 20, 12, 0.8)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        if (!hedgeAt.has(`${tx},${ty - 1}`)) { ctx.moveTo(b.x, b.y + 0.75); ctx.lineTo(b.x + b.w, b.y + 0.75); }
+        if (!hedgeAt.has(`${tx},${ty + 1}`)) { ctx.moveTo(b.x, b.y + b.h - 0.75); ctx.lineTo(b.x + b.w, b.y + b.h - 0.75); }
+        if (!hedgeAt.has(`${tx - 1},${ty}`)) { ctx.moveTo(b.x + 0.75, b.y); ctx.lineTo(b.x + 0.75, b.y + b.h); }
+        if (!hedgeAt.has(`${tx + 1},${ty}`)) { ctx.moveTo(b.x + b.w - 0.75, b.y); ctx.lineTo(b.x + b.w - 0.75, b.y + b.h); }
+        ctx.stroke();
       } else if (b.kind === 'crate') {
         ctx.fillStyle = PALETTE.crate;
         ctx.fillRect(b.x + 3, b.y + 3, b.w - 6, b.h - 6);
@@ -118,21 +140,42 @@ export class Renderer {
 
   drawExit(exit, pulse) {
     const { ctx } = this;
-    const glow = 46 + Math.sin(pulse * 2.4) * 6;
-    const g = ctx.createRadialGradient(exit.x, exit.y, 4, exit.x, exit.y, glow + 30);
-    g.addColorStop(0, 'rgba(127, 224, 168, 0.40)');
+    const glow = 52 + Math.sin(pulse * 2.4) * 6;
+    // Emerald light spill onto the tiles in front of the gate, so the
+    // goal reads as a beacon from across the level.
+    const g = ctx.createRadialGradient(exit.x, exit.y, 4, exit.x, exit.y, glow + 46);
+    g.addColorStop(0, 'rgba(127, 224, 168, 0.42)');
+    g.addColorStop(0.5, 'rgba(127, 224, 168, 0.14)');
     g.addColorStop(1, 'rgba(127, 224, 168, 0)');
     ctx.fillStyle = g;
-    ctx.fillRect(exit.x - glow - 30, exit.y - glow - 30, (glow + 30) * 2, (glow + 30) * 2);
-    // A green gate arch with a lit doorway.
-    ctx.fillStyle = '#1d3a28';
-    ctx.fillRect(exit.x - 15, exit.y - 18, 30, 36);
-    ctx.fillStyle = PALETTE.exitGlow;
-    ctx.fillRect(exit.x - 9, exit.y - 12, 18, 30);
-    ctx.fillStyle = '#0d1026';
-    ctx.font = 'bold 11px Georgia, serif';
+    ctx.fillRect(exit.x - glow - 46, exit.y - glow - 46, (glow + 46) * 2, (glow + 46) * 2);
+    // A palace archway: stone posts, a rounded top, a bright lit doorway.
+    ctx.fillStyle = '#31406b';
+    ctx.fillRect(exit.x - 18, exit.y - 20, 7, 40);
+    ctx.fillRect(exit.x + 11, exit.y - 20, 7, 40);
+    ctx.fillStyle = '#3a4d80';
+    ctx.beginPath();
+    ctx.arc(exit.x, exit.y - 19, 18, Math.PI, 0);
+    ctx.fill();
+    ctx.fillStyle = '#9ff0c0';
+    ctx.fillRect(exit.x - 11, exit.y - 16, 22, 36);
+    ctx.fillStyle = '#d8ffe6';
+    ctx.fillRect(exit.x - 7, exit.y - 12, 14, 32);
+    ctx.fillStyle = '#12351f';
+    ctx.beginPath();
+    ctx.moveTo(exit.x - 11, exit.y + 4);
+    ctx.lineTo(exit.x, exit.y - 12);
+    ctx.lineTo(exit.x + 11, exit.y + 4);
+    ctx.lineTo(exit.x, exit.y + 20);
+    ctx.closePath();
+    ctx.fill();
+    ctx.font = 'bold 12px Georgia, serif';
     ctx.textAlign = 'center';
-    ctx.fillText('GATE', exit.x, exit.y + 30);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(0, 20, 8, 0.9)';
+    ctx.strokeText('GATE', exit.x, exit.y + 36);
+    ctx.fillStyle = '#eafff0';
+    ctx.fillText('GATE', exit.x, exit.y + 36);
   }
 
   drawCones(guards, blockers) {
@@ -173,30 +216,54 @@ export class Renderer {
 
   drawPlayer(player) {
     const { ctx } = this;
+    const fx = Math.cos(player.facing);
+    const fy = Math.sin(player.facing);
     // Soft shadow under the courier.
     ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
     ctx.beginPath();
     ctx.ellipse(player.x, player.y + 10, 13, 5, 0, 0, Math.PI * 2);
     ctx.fill();
-    // Hooded cloak: a circle with a darker hood and a facing tick.
+    // Trailing scarf: two fluttering ribbons behind the movement direction.
+    ctx.strokeStyle = '#7a5a8a';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(player.x - fx * 8, player.y - fy * 8);
+    ctx.quadraticCurveTo(
+      player.x - fx * 20, player.y - fy * 20 + 4,
+      player.x - fx * 24, player.y - fy * 24 - 3,
+    );
+    ctx.moveTo(player.x - fx * 8, player.y - fy * 8);
+    ctx.quadraticCurveTo(
+      player.x - fx * 18, player.y - fy * 18 - 5,
+      player.x - fx * 22, player.y - fy * 22 + 4,
+    );
+    ctx.stroke();
+    // Hooded cloak: a dark hood ring around a pale face, with shoulders
+    // so the courier reads as a person, not an orb.
     ctx.fillStyle = PALETTE.playerHood;
     ctx.beginPath();
     ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
     ctx.fill();
+    // Shoulder pads left and right of the facing direction.
+    ctx.fillStyle = '#3a3157';
+    ctx.beginPath();
+    ctx.arc(player.x - fy * 9, player.y + fx * 9, 5, 0, Math.PI * 2);
+    ctx.arc(player.x + fy * 9, player.y - fx * 9, 5, 0, Math.PI * 2);
+    ctx.fill();
     ctx.fillStyle = PALETTE.player;
     ctx.beginPath();
-    ctx.arc(player.x, player.y, player.r - 4.5, 0, Math.PI * 2);
+    ctx.arc(player.x, player.y, player.r - 5.5, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = PALETTE.playerHood;
-    ctx.lineWidth = 2.5;
+    // Hood point and a facing tick so the direction is readable.
+    ctx.fillStyle = PALETTE.playerHood;
     ctx.beginPath();
-    ctx.moveTo(player.x, player.y);
-    ctx.lineTo(
-      player.x + Math.cos(player.facing) * (player.r + 3),
-      player.y + Math.sin(player.facing) * (player.r + 3),
-    );
-    ctx.stroke();
-    // The sealed letter: a tiny cream square at the courier's side.
+    ctx.moveTo(player.x + fx * 6, player.y + fy * 6);
+    ctx.lineTo(player.x + fx * (player.r + 4), player.y + fy * (player.r + 4));
+    ctx.lineTo(player.x + fx * 2 - fy * 3, player.y + fy * 2 + fx * 3);
+    ctx.closePath();
+    ctx.fill();
+    // The sealed letter: a tiny cream square with a red seal, carried
+    // at the courier's side.
     ctx.fillStyle = '#f4ead2';
     ctx.fillRect(player.x + 7, player.y + 5, 6, 8);
     ctx.strokeStyle = '#a33';
@@ -206,11 +273,28 @@ export class Renderer {
 
   drawGuard(guard) {
     const { ctx } = this;
+    const fx = Math.cos(guard.angle);
+    const fy = Math.sin(guard.angle);
     ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
     ctx.beginPath();
     ctx.ellipse(guard.x, guard.y + 11, 14, 5.5, 0, 0, Math.PI * 2);
     ctx.fill();
-    // Uniformed sentry: gold body, dark belt, helmet brim, direction tick.
+    // A handheld spear, held forward: the guard's orientation is readable
+    // even where the cone is clipped away by a wall.
+    ctx.strokeStyle = '#6a5636';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(guard.x - fx * 6, guard.y - fy * 6);
+    ctx.lineTo(guard.x + fx * (guard.r + 12), guard.y + fy * (guard.r + 12));
+    ctx.stroke();
+    ctx.fillStyle = '#c8b06a';
+    ctx.beginPath();
+    ctx.moveTo(guard.x + fx * (guard.r + 18), guard.y + fy * (guard.r + 18));
+    ctx.lineTo(guard.x + fx * (guard.r + 8) - fy * 3.5, guard.y + fy * (guard.r + 8) + fx * 3.5);
+    ctx.lineTo(guard.x + fx * (guard.r + 8) + fy * 3.5, guard.y + fy * (guard.r + 8) - fx * 3.5);
+    ctx.closePath();
+    ctx.fill();
+    // Uniformed sentry: gold body, dark belt, shoulder bars, helmet brim.
     ctx.fillStyle = guard.state === 'chase' ? '#d84a3a' : PALETTE.guard;
     ctx.beginPath();
     ctx.arc(guard.x, guard.y, guard.r, 0, Math.PI * 2);
@@ -219,25 +303,17 @@ export class Renderer {
     ctx.beginPath();
     ctx.arc(guard.x, guard.y, guard.r - 5, 0, Math.PI * 2);
     ctx.fill();
+    // Shoulder bars across the facing direction.
     ctx.strokeStyle = '#2c2410';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(guard.x, guard.y);
-    ctx.lineTo(
-      guard.x + Math.cos(guard.angle) * (guard.r + 6),
-      guard.y + Math.sin(guard.angle) * (guard.r + 6),
-    );
+    ctx.moveTo(guard.x - fy * 11, guard.y + fx * 11);
+    ctx.lineTo(guard.x + fy * 11, guard.y - fx * 11);
     ctx.stroke();
     // Helmet brim.
     ctx.fillStyle = '#5a4a22';
     ctx.beginPath();
-    ctx.arc(
-      guard.x + Math.cos(guard.angle) * 5,
-      guard.y + Math.sin(guard.angle) * 5,
-      5,
-      0,
-      Math.PI * 2,
-    );
+    ctx.arc(guard.x + fx * 5, guard.y + fy * 5, 5, 0, Math.PI * 2);
     ctx.fill();
     // Detection meter ring above the guard's head.
     if (guard.detect > 0.03) {

@@ -56,7 +56,7 @@ export const PALETTE = {
   playerHood: '#4a3f6b',
   guard: '#c8b06a',
   guardDark: '#8a7440',
-  coneCalm: 'rgba(255, 190, 90, 0.20)',
+  coneCalm: 'rgba(255, 205, 115, 0.28)',
   coneWary: 'rgba(255, 140, 60, 0.32)',
   coneAlert: 'rgba(255, 70, 60, 0.38)',
   text: '#e8e4d8',
