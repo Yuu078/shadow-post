@@ -1,0 +1,38 @@
+/* SHADOW POST — page chrome. The game itself is drawn on one canvas;
+   this file only centres it on a night-dark page. */
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #07081a;
+  min-height: 100%;
+}
+
+#stage {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+#game {
+  display: block;
+  width: min(960px, 96vw);
+  height: auto;
+  border: 2px solid #2a3054;
+  border-radius: 6px;
+  box-shadow: 0 0 60px rgba(40, 60, 160, 0.35), 0 8px 30px rgba(0, 0, 0, 0.6);
+  background: #0d1026;
+  cursor: crosshair;
+}
+
+#hint {
+  margin: 0;
+  color: #7d86b3;
+  font: 13px/1.5 Georgia, 'Times New Roman', serif;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
